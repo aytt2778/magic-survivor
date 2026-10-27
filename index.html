@@ -1760,19 +1760,25 @@ function draw() {
   ctx.save();
   ctx.translate(-camera.x, -camera.y);
 
-  // 半写实暗黑奇幻地牢地面：不规则石板、裂缝、苔痕与碎石
-  ctx.fillStyle='#17191b';ctx.fillRect(0,0,WORLD_W,WORLD_H);
-  for(let ty=0;ty<WORLD_H;ty+=94)for(let tx=0;tx<WORLD_W;tx+=112){
-    const seed=Math.abs(Math.sin(tx*12.9898+ty*78.233)*43758.5453)%1;
-    const ox=(Math.sin(ty*0.17+tx)*9), oy=(Math.cos(tx*.11+ty)*6);
-    ctx.beginPath();ctx.moveTo(tx+ox+4,ty+oy+3);ctx.lineTo(tx+105,ty+oy+Math.sin(seed*8)*4);ctx.lineTo(tx+109,ty+84);ctx.lineTo(tx+ox+12,ty+90);ctx.closePath();
-    ctx.fillStyle=['#202222','#242625','#1b1e1e','#292a28'][Math.floor(seed*4)];ctx.fill();
-    ctx.strokeStyle='rgba(4,5,5,.65)';ctx.lineWidth=3;ctx.stroke();
-    ctx.strokeStyle='rgba(175,174,157,.07)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(tx+ox+10,ty+oy+8);ctx.lineTo(tx+45,ty+18);ctx.stroke();
-    if(seed>.72){ctx.strokeStyle='rgba(8,9,8,.8)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(tx+30,ty+25);ctx.lineTo(tx+36,ty+39);ctx.lineTo(tx+26,ty+51);ctx.stroke();}
-    if(seed<.16){ctx.fillStyle='rgba(72,91,61,.26)';ctx.beginPath();ctx.ellipse(tx+68,ty+61,15,6,seed*3,0,Math.PI*2);ctx.fill();}
-    if(seed>.9){ctx.fillStyle='#343630';ctx.beginPath();ctx.moveTo(tx+72,ty+72);ctx.lineTo(tx+80,ty+61);ctx.lineTo(tx+89,ty+74);ctx.closePath();ctx.fill();}
+  // 性能优化：静态地牢地面只生成一次，后续帧直接绘制缓存，避免每帧重画数百块石板。
+  if (!floorBackgroundCache) {
+    floorBackgroundCache = document.createElement('canvas');
+    floorBackgroundCache.width = WORLD_W; floorBackgroundCache.height = WORLD_H;
+    const bctx = floorBackgroundCache.getContext('2d');
+    bctx.fillStyle='#17191b'; bctx.fillRect(0,0,WORLD_W,WORLD_H);
+    for(let ty=0;ty<WORLD_H;ty+=94)for(let tx=0;tx<WORLD_W;tx+=112){
+      const seed=Math.abs(Math.sin(tx*12.9898+ty*78.233)*43758.5453)%1;
+      const ox=(Math.sin(ty*0.17+tx)*9), oy=(Math.cos(tx*.11+ty)*6);
+      bctx.beginPath();bctx.moveTo(tx+ox+4,ty+oy+3);bctx.lineTo(tx+105,ty+oy+Math.sin(seed*8)*4);bctx.lineTo(tx+109,ty+84);bctx.lineTo(tx+ox+12,ty+90);bctx.closePath();
+      bctx.fillStyle=['#202222','#242625','#1b1e1e','#292a28'][Math.floor(seed*4)];bctx.fill();
+      bctx.strokeStyle='rgba(4,5,5,.65)';bctx.lineWidth=3;bctx.stroke();
+      bctx.strokeStyle='rgba(175,174,157,.07)';bctx.lineWidth=1;bctx.beginPath();bctx.moveTo(tx+ox+10,ty+oy+8);bctx.lineTo(tx+45,ty+18);bctx.stroke();
+      if(seed>.72){bctx.strokeStyle='rgba(8,9,8,.8)';bctx.lineWidth=2;bctx.beginPath();bctx.moveTo(tx+30,ty+25);bctx.lineTo(tx+36,ty+39);bctx.lineTo(tx+26,ty+51);bctx.stroke();}
+      if(seed<.16){bctx.fillStyle='rgba(72,91,61,.26)';bctx.beginPath();bctx.ellipse(tx+68,ty+61,15,6,seed*3,0,Math.PI*2);bctx.fill();}
+      if(seed>.9){bctx.fillStyle='#343630';bctx.beginPath();bctx.moveTo(tx+72,ty+72);bctx.lineTo(tx+80,ty+61);bctx.lineTo(tx+89,ty+74);bctx.closePath();bctx.fill();}
+    }
   }
+  ctx.drawImage(floorBackgroundCache,0,0);
   // 场景边缘的暗角与微弱冷雾，营造游戏截图中的地牢氛围
   const floorGlow=ctx.createRadialGradient(player.x,player.y,70,player.x,player.y,Math.max(WORLD_W,WORLD_H)*.62);floorGlow.addColorStop(0,'rgba(116,92,163,.08)');floorGlow.addColorStop(1,'rgba(0,0,0,.38)');ctx.fillStyle=floorGlow;ctx.fillRect(0,0,WORLD_W,WORLD_H);
 
@@ -2056,6 +2062,8 @@ function drawHUD() {
   if(spellNames){ctx.fillStyle='#ddd6fe';ctx.font='11px sans-serif';ctx.fillText(spellNames,16,78);}
   if(gameNotice.life>0){ctx.save();ctx.globalAlpha=Math.min(1,gameNotice.life/20);ctx.fillStyle='rgba(10,8,20,.72)';ctx.fillRect(W/2-190,45,380,30);ctx.strokeStyle=gameNotice.color;ctx.strokeRect(W/2-190,45,380,30);ctx.fillStyle=gameNotice.color;ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.fillText(gameNotice.text,W/2,65);ctx.restore();}
 }
+
+let floorBackgroundCache = null;
 
 // 固定 60Hz 游戏逻辑：显示器即使是 90/120/144Hz，也不会让游戏加速
 const FIXED_STEP_MS = 1000 / 60;
